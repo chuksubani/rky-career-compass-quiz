@@ -14,6 +14,8 @@ Recommends the top three RKY Careers bootcamp pathways from experience, interest
 python3 tools/build-compass-data.py "RKY_Career_Compass_Quiz_and_Scoring_Spec (1).xlsx"
 ```
 
+The workbook is **not stored in this repo** (it is git-ignored). Get the current copy from the project owner, save it in the repo root, and re-run the command above whenever the spec changes. The site itself only needs the committed `compass-data.js`, so deploys and tests don't depend on the workbook.
+
 Things the workbook only describes in prose (display conditions, exclusive answers, stage grouping) are encoded in `tools/build-compass-data.py`; copy, links, readiness thresholds and lead settings are in `quiz-config.js`.
 
 **Load order** (see `index.html`): `quiz-core.js`, `pathway-scoring.js`, `compass-data.js`, `quiz-config.js`, `quiz-results-pathway.js`, `quiz-engine.js`.
