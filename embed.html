@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Embed example (host page)</title>
+  <style>
+    body { margin: 0; font: 16px/1.6 Georgia, serif; color: #222; background: #f4efe6; }
+    article { max-width: 760px; margin: 0 auto; padding: 40px 20px; }
+    h1 { font-size: 2rem; }
+    iframe { display: block; width: 100%; min-height: 620px; border: 0; }
+    pre { background: #fff; padding: 12px; overflow-x: auto; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <article>
+    <h1>A host article page</h1>
+    <p>This stands in for an existing website. The Career Compass below is an iframe of <code>index.html</code>; the host page keeps its own fonts and styles. Set <code>target: 'host'</code> in the CTA config and this page receives <code>cta:clicked</code> instead of the visitor being navigated.</p>
+
+    <!-- The embed snippet. src is relative here; use your quiz's absolute https URL in production. -->
+    <iframe
+      data-quiz-widget
+      src="index.html"
+      title="RKY Career Compass"
+      loading="lazy"
+      style="width: 100%; min-height: 620px; border: 0;"
+    ></iframe>
+    <script src="embed.js" defer></script>
+
+    <p>Text after the quiz. If the iframe is resized correctly there is no inner scrollbar and no gap.</p>
+    <pre id="log">events from the quiz appear here…</pre>
+    <script>
+      document.addEventListener('quiz-widget:event', function (e) {
+        if (e.detail.type !== 'quiz:height') document.getElementById('log').textContent += '\n' + JSON.stringify(e.detail);
+      });
+    </script>
+  </article>
+</body>
+</html>

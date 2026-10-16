@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Outcome quiz example</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>html, body { margin: 0; background: #f4efe6; }</style>
+</head>
+<body>
+  <main id="quiz" data-manual></main>
+  <script src="../quiz-core.js" defer></script>
+  <script src="outcome-config.js" defer></script>
+  <script src="../quiz-engine.js" defer></script>
+  <script>
+    // Demonstrates the host-supplied lead handler. This is a MOCK: it never sends data anywhere.
+    // Use an email starting with "fail@" to see the error state.
+    document.addEventListener('DOMContentLoaded', function () {
+      QuizWidget.mount(document.getElementById('quiz'), window.QUIZ_CONFIG, {
+        onLeadSubmit: function (lead) {
+          return new Promise(function (resolve, reject) {
+            setTimeout(function () { lead.email.indexOf('fail@') === 0 ? reject(new Error('mock failure')) : resolve(); }, 600);
+          });
+        }
+      });
+    });
+  </script>
+</body>
+</html>

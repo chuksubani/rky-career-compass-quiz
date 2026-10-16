@@ -1,0 +1,16 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Responsive harness</title>
+<style>
+  body { margin: 16px; font: 14px system-ui; background: #ddd; }
+  .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+  figure { margin: 0; } figcaption { margin-bottom: 4px; }
+  iframe { border: 1px solid #999; background: #f4efe6; height: 900px; }
+</style></head><body>
+<!-- Media queries inside each iframe respond to the iframe's own width, so these are real narrow viewports. -->
+<div class="row">
+  <figure><figcaption>320px (small phone)</figcaption><iframe src="../index.html" width="320" title="320"></iframe></figure>
+  <figure><figcaption>390px (phone)</figcaption><iframe src="../index.html" width="390" title="390"></iframe></figure>
+  <figure><figcaption>768px (tablet)</figcaption><iframe src="../index.html" width="768" title="768"></iframe></figure>
+  <figure><figcaption>1100px (desktop)</figcaption><iframe src="../index.html" width="1100" title="1100"></iframe></figure>
+</div></body></html>

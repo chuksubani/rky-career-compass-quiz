@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Career Compass (demo with mock lead handler)</title>
+  <link rel="stylesheet" href="../styles.css">
+  <style>html, body { margin: 0; background: #ffffff; }</style>
+</head>
+<body>
+  <main id="quiz" data-manual></main>
+  <script src="../quiz-core.js" defer></script>
+  <script src="../pathway-scoring.js" defer></script>
+  <script src="../compass-data.js" defer></script>
+  <script src="../quiz-config.js" defer></script>
+  <script src="../quiz-results-pathway.js" defer></script>
+  <script src="../quiz-engine.js" defer></script>
+  <script>
+    // MOCK lead handler: nothing is sent anywhere. It logs the exact payload the real endpoint
+    // would receive. Use an email starting with "fail@" to see the error and retry state.
+    // The production page (index.html) posts to leadCapture.endpoint in quiz-config.js instead.
+    document.addEventListener('DOMContentLoaded', function () {
+      QuizWidget.mount(document.getElementById('quiz'), window.QUIZ_CONFIG, {
+        onLeadSubmit: function (lead) {
+          console.log('[mock] lead payload', JSON.parse(JSON.stringify(lead)));
+          window.__lastLead = lead;
+          return new Promise(function (resolve, reject) {
+            setTimeout(function () { lead.email.indexOf('fail@') === 0 ? reject(new Error('mock failure')) : resolve(); }, 600);
+          });
+        },
+        onEvent: function (e) { if (e.type !== 'quiz:height') console.log('[event]', e.type, e.payload); }
+      });
+    });
+  </script>
+</body>
+</html>

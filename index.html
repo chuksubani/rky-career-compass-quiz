@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RKY Career Compass</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    /* Document-level reset only: the widget itself is styled by styles.css under .qz */
+    html, body { margin: 0; background: transparent; }
+  </style>
+</head>
+<body>
+  <!-- Relative paths only, so the folder works at any URL depth or subpath. -->
+  <main id="quiz">
+    <noscript>This quiz needs JavaScript to run.</noscript>
+  </main>
+  <!-- Order matters: logic, scoring model, spec data, config, result screen, engine. -->
+  <script src="quiz-core.js" defer></script>
+  <script src="pathway-scoring.js" defer></script>
+  <script src="compass-data.js" defer></script>
+  <script src="quiz-config.js" defer></script>
+  <script src="quiz-results-pathway.js" defer></script>
+  <script src="quiz-engine.js" defer></script>
+</body>
+</html>
