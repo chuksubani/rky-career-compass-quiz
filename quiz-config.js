@@ -23,7 +23,7 @@ window.QUIZ_CONFIG = (function (D) {
   /* ----- Per-question copy that is not in the workbook ----- */
   var WHY_UK = 'This only helps us point you to the right guidance. It never changes your career match, and it isn’t legal advice.';
   var QUESTION_COPY = {
-    Q03: { placeholder: 'For example: Customer service assistant' },
+    Q03: { placeholder: 'For example: Customer service assistant', suggest: 'jobTitles' },
     Q19: { note: WHY_UK },
     Q20: { note: WHY_UK },
     Q21: { note: WHY_UK },
@@ -177,13 +177,13 @@ window.QUIZ_CONFIG = (function (D) {
     // Shown after the result and never gates it. PLACEHOLDER endpoint: replace with your API.
     leadCapture: {
       enabled: true,
-      heading: 'Email me my results',
-      description: 'We’ll send your pathway matches and 90-day plan. Marketing messages are optional and off by default.',
+      heading: 'Keep your full results',
+      description: 'Your full report includes pathway matches, skills, roles and your 90-day plan. Marketing updates are optional.',
       collectName: true,
       nameRequired: true,
       collectWhatsApp: true,
-      submitLabel: 'Email me my results',
-      successMessage: 'Thanks. Your results are on their way. You can keep exploring below.',
+      submitLabel: 'Email my full results',
+      successMessage: 'Thanks. Your full results have been requested. Check your inbox shortly.',
       optIns: {
         email: { text: 'Email me news, events and course updates from RKY Careers.' },
         whatsapp: { text: 'Message me on WhatsApp about courses and events.' }

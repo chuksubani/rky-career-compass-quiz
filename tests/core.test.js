@@ -173,3 +173,23 @@ test('validation: theme.mode accepts light, dark, auto only', () => {
 test('validation: shell and accentText theme keys are accepted', () => {
   assert.equal(errorsAfter(c => { c.theme.shell = '#f4f3f1'; c.theme.accentText = '#b4500f'; }), '');
 });
+
+test('suggest: ranks prefix over word-prefix over substring, supports aliases', () => {
+  const items = [
+    { text: 'Senior Business Analyst', aliases: [] },
+    { text: 'Business Analyst', aliases: ['BA'] },
+    { text: 'Cyber Security Analyst', aliases: [] },
+    { text: 'Data Analyst', aliases: [] }
+  ];
+  const r = Core.suggest('busin', items);
+  assert.deepEqual(r.map((m) => m.text), ['Business Analyst', 'Senior Business Analyst']);
+  assert.deepEqual([r[0].start, r[0].end], [0, 5]);
+  const a = Core.suggest('ba', items);
+  assert.equal(a[0].text, 'Business Analyst');
+  assert.equal(a[0].alias, true);
+  assert.equal(a[0].start, -1);
+  assert.deepEqual(Core.suggest('  ', items), []);
+  assert.deepEqual(Core.suggest('zzz', items), []);
+  assert.equal(Core.suggest('analyst', items, 2).length, 2);
+  assert.equal(Core.suggest('DATA-analyst!', items)[0].text, 'Data Analyst');
+});

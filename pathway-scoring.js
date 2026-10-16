@@ -240,6 +240,25 @@
       percent: result.top[0] ? result.top[0].percent : null,
       readiness: result.readiness.id
     };
+    // Email integrations receive the supporting detail removed from the summary screen.
+    // Servers should reconstruct this report from validated answers before sending it.
+    payload.report = {
+      pathways: result.top.map(function (entry) {
+        var p = entry.pathway;
+        return {
+          id: entry.id, name: p.name, rank: entry.rank, percent: entry.percent,
+          signals: p.signals, reasons: entry.reasons,
+          skillsToBuild: p.skillGaps, starterRoles: p.starterRoles,
+          progressionRoles: p.progressionRoles, portfolio: p.portfolio,
+          url: Core.safeUrl(config.pathway.cta.bootcamps[entry.id].url)
+        };
+      }),
+      readiness: result.readiness,
+      roadmap: result.roadmap,
+      avoidanceNotes: result.avoidanceNotes,
+      ukGuidance: result.roadmap.conditional ? config.pathway.ukGuidance || null : null,
+      disclaimer: config.results && config.results.disclaimer || ''
+    };
     return payload;
   }
 

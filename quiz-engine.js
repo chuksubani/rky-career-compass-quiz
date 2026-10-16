@@ -53,6 +53,84 @@
     return frag;
   }
 
+  // Typeahead for a text input: suggestions are a typing aid only. Whatever is in the field stays
+  // the answer, so visitors can always use their own wording. Plain text nodes only.
+  function attachSuggest(field, wrap, pool, id, onPick) {
+    var listId = id + '-suggest', statusId = id + '-suggest-status';
+    var list = h('ul', { class: 'qz-suggest', id: listId, role: 'listbox', hidden: true });
+    var status = h('div', { class: 'qz-sr', id: statusId, 'aria-live': 'polite' });
+    var matches = [], active = -1, typed = '';
+    field.setAttribute('role', 'combobox');
+    field.setAttribute('aria-autocomplete', 'list');
+    field.setAttribute('aria-expanded', 'false');
+    field.setAttribute('aria-controls', listId);
+    wrap.classList.add('qz-suggest-wrap');
+    wrap.appendChild(list);
+    wrap.appendChild(status);
+
+    function close() {
+      list.hidden = true; active = -1;
+      field.setAttribute('aria-expanded', 'false');
+      field.removeAttribute('aria-activedescendant');
+    }
+    function setActive(i) {
+      active = i;
+      Array.prototype.forEach.call(list.children, function (li, n) {
+        var on = n === i;
+        li.classList.toggle('is-active', on);
+        li.setAttribute('aria-selected', on ? 'true' : 'false');
+        if (on) { field.setAttribute('aria-activedescendant', li.id); li.scrollIntoView({ block: 'nearest' }); }
+      });
+      if (i < 0) field.removeAttribute('aria-activedescendant');
+    }
+    function pick(i) {
+      var m = matches[i];
+      if (!m) return;
+      field.value = m.text.slice(0, Number(field.getAttribute('maxlength')) || m.text.length);
+      onPick(field.value);
+      close();
+    }
+    function render() {
+      typed = field.value;
+      matches = Core.suggest(typed, pool, 6);
+      while (list.firstChild) list.removeChild(list.firstChild);
+      if (!typed.trim()) { close(); status.textContent = ''; return; }
+      if (!matches.length) {
+        list.appendChild(h('li', { class: 'qz-suggest-empty', role: 'presentation', text: 'No match. Your own wording is fine.' }));
+        status.textContent = 'No suggestions. You can keep what you typed.';
+      } else {
+        matches.forEach(function (m, i) {
+          var label = m.start >= 0
+            ? [m.text.slice(0, m.start), h('strong', { text: m.text.slice(m.start, m.end) }), m.text.slice(m.end)]
+            : [m.text];
+          var li = h('li', { class: 'qz-suggest-opt', role: 'option', id: id + '-opt-' + i, 'aria-selected': 'false' }, label);
+          // mousedown, not click: the input would blur and close the list before a click lands.
+          li.addEventListener('mousedown', function (e) { e.preventDefault(); pick(i); });
+          list.appendChild(li);
+        });
+        status.textContent = plural(matches.length, 'suggestion', 'suggestions') + ' available. Use up and down arrows, Enter to choose.';
+      }
+      list.hidden = false;
+      field.setAttribute('aria-expanded', 'true');
+      active = -1;
+    }
+    field.addEventListener('input', render);
+    field.addEventListener('blur', close);
+    field.addEventListener('keydown', function (e) {
+      var open = !list.hidden && matches.length > 0;
+      if (e.key === 'ArrowDown') {
+        if (list.hidden) render();
+        if (matches.length) { setActive((active + 1) % matches.length); e.preventDefault(); }
+      } else if (e.key === 'ArrowUp' && open) {
+        setActive((active - 1 + matches.length) % matches.length); e.preventDefault();
+      } else if (e.key === 'Enter' && open && active >= 0) {
+        e.preventDefault(); pick(active);          // otherwise Enter submits the form with what was typed
+      } else if (e.key === 'Escape' && !list.hidden) {
+        close(); e.preventDefault(); e.stopPropagation();
+      }
+    });
+  }
+
   function fmt(n) { return String(Math.round(n * 10) / 10); }
   function plural(n, one, many) { return n + ' ' + (n === 1 ? one : many); }
 
@@ -383,7 +461,11 @@
         });
         field.value = typeof state.answers[q.id] === 'string' ? state.answers[q.id] : '';
         field.addEventListener('input', function () { state.answers[q.id] = field.value; syncContinue(); });
+        var pool = q.suggest && window.QUIZ_SUGGESTIONS && window.QUIZ_SUGGESTIONS[q.suggest];
         answerArea = h('div', { class: 'qz-choices qz-text-wrap' }, field);
+        if (pool && pool.length) {
+          attachSuggest(field, answerArea, pool, uid + '-' + q.id, function (v) { state.answers[q.id] = v; syncContinue(); });
+        }
       } else {
         var choices = q.choices.map(function (c) {
           var input = h('input', {

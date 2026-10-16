@@ -342,3 +342,42 @@ test('lead payload carries the workbook CRM fields and never an unvalidated scor
   assert.ok(p.suggested_cta.url.startsWith('https://'));
   assert.equal('lead_segment' in p, false);                                   // assigned by the CRM
 });
+
+test('Q03 suggestions are a typing aid: valid config, text questions only, no scoring effect', () => {
+  assert.equal(cfg.questions.find((q) => q.id === 'Q03').suggest, 'jobTitles');
+  assert.deepEqual(Core.validateConfig(cfg).errors, []);
+  const bad = clone(cfg);
+  bad.questions.find((q) => q.id === 'Q02').suggest = 'jobTitles';
+  assert.ok(Core.validateConfig(bad).errors.some((e) => /suggest/.test(e)));
+  const a = score(persona({ Q03: 'Business Analyst' }));
+  const b = score(persona({ Q03: 'my own odd title' }));
+  assert.deepEqual(a.ranking, b.ranking);
+});
+
+
+test('full email report preserves pathway details and personalised plan without unrelated UK guidance', () => {
+  const answers = persona({ Q05: ['REPORT'], Q09: ['INSIGHTS'], Q15: ['TIME'], Q23: ['UPSKILL'], Q16: ['SELF'] });
+  const r = score(answers);
+  const p = PS.leadPayload(cfg, { answers, result: r, form: { email: 'a@example.com' } });
+  const report = JSON.parse(JSON.stringify(p.report));
+  assert.equal(report.pathways.length, r.top.length);
+  assert.deepEqual(report.pathways[0].skillsToBuild, r.top[0].pathway.skillGaps);
+  assert.deepEqual(report.pathways[0].starterRoles, r.top[0].pathway.starterRoles);
+  assert.deepEqual(report.pathways[0].progressionRoles, r.top[0].pathway.progressionRoles);
+  assert.equal(report.pathways[0].portfolio, r.top[0].pathway.portfolio);
+  assert.deepEqual(report.pathways[0].reasons, r.top[0].reasons);
+  assert.equal(report.readiness.advice, r.readiness.advice);
+  assert.deepEqual(report.roadmap, r.roadmap);
+  assert.equal(report.ukGuidance, null);
+  assert.equal(report.disclaimer, cfg.results.disclaimer);
+  assert.equal(p.email_marketing_optin, false);
+});
+
+test('full email report retains conditional UK plan and guidance only when relevant', () => {
+  const answers = persona({ Q05: ['REPORT'], Q09: ['INSIGHTS'], Q17: ['UK'], Q19: ['SPONSORED'], Q20: ['YES'] });
+  const r = score(answers);
+  const report = PS.leadPayload(cfg, { answers, result: r, form: { email: 'a@example.com' } }).report;
+  assert.equal(report.roadmap.conditional, true);
+  assert.ok(report.roadmap.conditionalRows.length > 0);
+  assert.deepEqual(report.ukGuidance, cfg.pathway.ukGuidance);
+});

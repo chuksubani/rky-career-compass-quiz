@@ -4,8 +4,8 @@
  * object (DOM helper `h`, the scored result, the visitor's answers, event hooks, lead submitter).
  * Like the rest of the widget it only ever inserts text with textContent.
  *
- * Screen order: best match (hero) -> two runners-up -> what the pathway involves -> training
- * readiness -> 90-day plan -> UK guidance (only if relevant) -> "email me my results" form.
+ * Screen order: best match -> two alternatives -> readiness summary -> optional email form.
+ * Supporting details are included in the full report payload, rather than the summary screen.
  */
 (function (global) {
   'use strict';
@@ -35,7 +35,7 @@
       var attrs = { class: 'qz-btn ' + (opts.style === 'ghost' ? 'qz-btn-ghost' : 'qz-btn-primary'), href: url, 'aria-describedby': descId };
       if (mode === 'new-tab') { attrs.target = '_blank'; attrs.rel = 'noopener noreferrer'; }
       else if (mode === 'top') { attrs.target = '_top'; attrs.rel = 'noopener'; }
-      var a = h('a', attrs, opts.label, h('span', { class: 'qz-arrow', 'aria-hidden': 'true', text: '→' }));
+      var a = h('a', attrs, opts.label);
       a.addEventListener('click', function (e) {
         ctx.trackCta({ kind: opts.kind, pathwayId: opts.pathway ? opts.pathway.id : null, url: url, placement: opts.placement });
         // "host" mode: the embedding page decides what happens, the widget does not navigate.
@@ -48,7 +48,7 @@
     function bootcampCta(entry, placement, style) {
       return ctaLink({
         kind: 'bootcamp', pathway: entry.pathway, placement: placement, style: style,
-        label: style === 'ghost' ? 'Explore this bootcamp' : 'Explore ' + entry.pathway.name,
+        label: 'Explore this bootcamp',
         url: pw.cta.bootcamps[entry.id].url
       });
     }
@@ -94,96 +94,60 @@
       bootcampCta(best, 'hero', 'primary'));
     parts.push(h('div', { class: 'qz-result-top' }, panel, main));
 
-    /* ----- runners-up + avoidance transparency ----- */
+    /* ----- alternatives: names and matches only ----- */
 
     if (r.top.length > 1) {
-      parts.push(h('section', { class: 'qz-path-others', 'aria-labelledby': uid + '-others' },
-        h('h3', { id: uid + '-others', class: 'qz-h3', text: 'Also worth exploring' }),
-        h('ol', { class: 'qz-path-list' }, r.top.slice(1).map(function (e) {
-          var fill = h('div', { class: 'qz-meter-fill' });
-          fill.style.width = e.percent + '%';
-          return h('li', { class: 'qz-path-card' },
-            h('div', { class: 'qz-path-card-head' },
-              h('span', { class: 'qz-path-rank', text: '#' + e.rank }),
-              h('h4', { class: 'qz-path-name', text: e.pathway.name }),
-              h('span', { class: 'qz-path-pct', text: e.percent + '%' })),
-            h('div', { class: 'qz-meter', role: 'img', 'aria-label': e.percent + '% match' }, fill),
-            h('p', { class: 'qz-muted', text: e.pathway.signals }),
-            bootcampCta(e, 'alt-' + e.rank, 'ghost'));
+      parts.push(h('section', { class: 'qz-summary-section', 'aria-labelledby': uid + '-others' },
+        h('h3', { id: uid + '-others', class: 'qz-summary-heading', text: 'Other pathways to consider' }),
+        h('ol', { class: 'qz-summary-pathways' }, r.top.slice(1).map(function (e) {
+          return h('li', {},
+            h('h4', { class: 'qz-summary-pathway', text: e.pathway.name }),
+            h('span', { class: 'qz-summary-match', text: e.percent + '% match' }));
         }))));
     }
 
-    r.avoidanceNotes.forEach(function (n) {
-      var p = pathwayById(n.pathwayId);
-      parts.push(h('p', { class: 'qz-note', text: 'You said you’d rather avoid activities like the ones in ' + p.name + ', so we lowered its score by ' + n.penalty + ' points' + (n.inTopThree ? '. It’s still in your top three.' : ' and moved it down your list.') }));
-    });
+    parts.push(h('section', { class: 'qz-summary-section', 'aria-labelledby': uid + '-ready' },
+      h('h3', { id: uid + '-ready', class: 'qz-summary-heading', text: 'Your training readiness' }),
+      h('p', { class: 'qz-muted' },
+        h('strong', { class: 'qz-summary-readiness', text: r.readiness.label + '. ' }), r.readiness.summary)));
 
-    /* ----- what the top pathway involves ----- */
+    /* ----- one email action; the form opens only when requested ----- */
 
-    var bp = best.pathway;
-    parts.push(h('section', { class: 'qz-path-detail', 'aria-labelledby': uid + '-detail' },
-      h('h3', { id: uid + '-detail', class: 'qz-h3', text: 'What ' + bp.name + ' involves' }),
-      h('div', { class: 'qz-path-cols' },
-        h('div', {}, h('h4', { class: 'qz-h4', text: 'Skills to build' }),
-          h('ul', { class: 'qz-tags qz-tags-skill' }, bp.skillGaps.map(function (t) { return h('li', { text: t }); }))),
-        h('div', {}, h('h4', { class: 'qz-h4', text: 'Roles to explore' }),
-          h('p', { class: 'qz-role-label', text: 'Good first roles' }),
-          h('ul', { class: 'qz-list' }, bp.starterRoles.map(function (t) { return h('li', { text: t }); })),
-          h('p', { class: 'qz-role-label', text: 'With more experience' }),
-          h('ul', { class: 'qz-list' }, bp.progressionRoles.map(function (t) { return h('li', { text: t }); }))),
-        h('div', {}, h('h4', { class: 'qz-h4', text: 'Portfolio project' }), h('p', { text: bp.portfolio })))));
-
-    /* ----- readiness (separate from the match) ----- */
-
-    var rd = r.readiness;
-    var levels = pw.readiness.labels.slice().sort(function (a, b) { return a.min - b.min; });
-    parts.push(h('section', { class: 'qz-ready', 'aria-labelledby': uid + '-ready' },
-      h('h3', { id: uid + '-ready', class: 'qz-h3', text: 'Your training readiness' }),
-      h('ol', { class: 'qz-levels' }, levels.map(function (l) {
-        var on = l.id === rd.id;
-        return h('li', { class: 'qz-level' + (on ? ' is-current' : ''), 'aria-current': on ? 'step' : null, text: l.label });
-      })),
-      h('p', { class: 'qz-ready-sum', text: rd.summary }),
-      h('p', { class: 'qz-muted', text: rd.advice }),
-      h('p', { class: 'qz-fine', text: 'Your match shows how well your answers fit a pathway. Readiness is about getting started with training. Neither predicts whether you’ll get a job.' })));
-
-    /* ----- 90-day plan ----- */
-
-    var road = r.roadmap;
-    parts.push(h('section', { class: 'qz-roadmap', 'aria-labelledby': uid + '-road' },
-      h('h3', { id: uid + '-road', class: 'qz-h3', text: 'Your first 90 days' }),
-      h('p', { class: 'qz-muted', text: 'A starting plan for someone who is “' + road.segment.toLowerCase() + '”. Adjust it to fit your life.' }),
-      h('ol', { class: 'qz-road-steps' }, road.rows.map(function (row, i) {
-        return h('li', { class: 'qz-road-step' },
-          h('span', { class: 'qz-road-num', 'aria-hidden': 'true', text: String(i + 1) }),
-          h('p', { class: 'qz-road-period', text: periodLabel(row.period) }),
-          h('p', { text: row.action }));
-      })),
-      road.addons.length > 0 && h('div', { class: 'qz-topics' },
-        h('h4', { class: 'qz-h4', text: 'Tailored for you' }),
-        h('ul', { class: 'qz-list' }, road.addons.map(function (a) { return h('li', { text: a.text }); })))));
-
-    /* ----- UK guidance: only when the visitor's answers make it relevant ----- */
-
-    if (road.conditional && pw.ukGuidance) {
-      parts.push(h('section', { class: 'qz-note qz-uk', 'aria-labelledby': uid + '-uk' },
-        h('h3', { id: uid + '-uk', class: 'qz-h4', text: pw.ukGuidance.title }),
-        pw.ukGuidance.body.map(function (t) { return h('p', { text: t }); })));
+    var emailSection = h('section', { class: 'qz-summary-email qz-no-print', 'aria-labelledby': uid + '-email' });
+    var actions = h('div', { class: 'qz-actions qz-summary-actions' });
+    if (ctx.lc && ctx.leadSubmitter) {
+      var form = reportForm(function () {
+        form.hidden = true;
+        emailButton.hidden = false;
+        emailButton.setAttribute('aria-expanded', 'false');
+        emailButton.focus();
+        ctx.queueHeight();
+      });
+      form.id = uid + '-report-form';
+      form.hidden = true;
+      var emailButton = h('button', {
+        type: 'button', class: 'qz-btn qz-btn-primary', text: 'Email my full results',
+        'aria-expanded': 'false', 'aria-controls': form.id,
+        onclick: function () {
+          form.hidden = false;
+          emailButton.hidden = true;
+          emailButton.setAttribute('aria-expanded', 'true');
+          form.querySelector('input').focus();
+          ctx.queueHeight();
+        }
+      });
+      emailSection.appendChild(h('h3', { id: uid + '-email', class: 'qz-summary-heading', text: 'Keep your full results' }));
+      emailSection.appendChild(h('p', { class: 'qz-muted', text: 'We’ll email your pathway breakdown, skills to build and personalised 90-day plan.' }));
+      actions.appendChild(emailButton);
+      emailSection.appendChild(form);
+    } else {
+      emailSection.appendChild(h('h3', { id: uid + '-email', class: 'qz-summary-heading', text: 'Talk through your results' }));
+      emailSection.appendChild(infoSessionCta('next-step', 'primary'));
     }
-
-    /* ----- next step: info session + results form ----- */
-
-    var form = ctx.lc && ctx.leadSubmitter ? reportForm() : null;
-    parts.push(h('section', { class: 'qz-next' + (form ? ' has-lead' : ''), 'aria-labelledby': uid + '-next' },
-      h('h3', { id: uid + '-next', class: 'qz-h3', text: 'Your next step' }),
-      h('div', { class: 'qz-next-body' },
-        h('div', { class: 'qz-next-main' },
-          h('p', { class: 'qz-next-text', text: 'Talk your results through with an adviser, or explore your top bootcamp.' }),
-          infoSessionCta('next-step', 'primary')),
-        form)));
-
+    actions.appendChild(h('button', { type: 'button', class: 'qz-btn qz-btn-ghost', text: 'Retake the quiz', onclick: ctx.restart }));
+    emailSection.appendChild(actions);
+    parts.push(emailSection);
     if (cfg.results && cfg.results.disclaimer) parts.push(h('p', { class: 'qz-disclaimer', text: cfg.results.disclaimer }));
-    parts.push(actionsView());
     return wrap(parts);
 
     /* ----- helpers ----- */
@@ -198,19 +162,9 @@
         h('button', { type: 'button', class: 'qz-btn qz-btn-ghost', text: 'Retake the quiz', onclick: ctx.restart }));
     }
 
-    function pathwayById(id) {
-      return pw.pathways.filter(function (p) { return p.id === id; })[0];
-    }
-
-    function periodLabel(period) {
-      var m = /^(\d+)\s*-\s*(\d+)$/.exec(period);
-      if (!m) return period;
-      return 'Days ' + (Number(m[1]) === 0 ? 1 : m[1]) + '–' + m[2];
-    }
-
     /* ----- "Email me my results" form ----- */
 
-    function reportForm() {
+    function reportForm(onCancel) {
       var lc = ctx.lc;
       var state = { busy: false, done: false };
       var wrapEl = h('section', { class: 'qz-capture', 'aria-labelledby': uid + '-lead-h' });
@@ -240,7 +194,7 @@
       }
 
       var formError = h('p', { class: 'qz-form-error', role: 'alert', hidden: true });
-      var submit = h('button', { type: 'submit', class: 'qz-btn qz-btn-primary', text: lc.submitLabel || 'Email me my results' });
+      var submit = h('button', { type: 'submit', class: 'qz-btn qz-btn-primary', text: lc.submitLabel || 'Email my full results' });
 
       var form = h('form', { class: 'qz-lead-form', novalidate: true },
         nameF && nameF.node, emailF.node, waF && waF.node,
@@ -249,7 +203,7 @@
           emailOpt && h('label', { class: 'qz-check', for: uid + '-f-optin-email' }, emailOpt, h('span', { text: optIns.email.text })),
           waOptRow),
         formError,
-        h('div', { class: 'qz-actions' }, h('span'), submit),
+        h('div', { class: 'qz-actions' }, submit, h('button', { type: 'button', class: 'qz-btn qz-btn-ghost', text: 'Cancel', onclick: function () { if (!state.busy) onCancel(); } })),
         lc.privacyNotice && h('p', { class: 'qz-privacy' }, lc.privacyNotice.text + ' ',
           lc.privacyNotice.url && h('a', { href: ctx.Core.safeUrl(lc.privacyNotice.url), target: '_blank', rel: 'noopener noreferrer', text: 'Privacy policy' })));
 
@@ -298,7 +252,7 @@
         }, function () {
           if (ctx.isDestroyed()) return;
           state.busy = false;
-          submit.disabled = false; submit.textContent = lc.submitLabel || 'Email me my results';
+          submit.disabled = false; submit.textContent = lc.submitLabel || 'Email my full results';
           form.removeAttribute('aria-busy');
           formError.textContent = 'Sorry, that didn’t go through. Please check your connection and try again.';
           formError.hidden = false;
@@ -307,7 +261,7 @@
         });
       });
 
-      wrapEl.appendChild(h('h4', { id: uid + '-lead-h', class: 'qz-lead-h', text: lc.heading || 'Email me my results' }));
+      wrapEl.appendChild(h('h4', { id: uid + '-lead-h', class: 'qz-lead-h', text: 'Where should we send your results?' }));
       if (lc.description) wrapEl.appendChild(h('p', { class: 'qz-muted', text: lc.description }));
       wrapEl.appendChild(form);
       return wrapEl;
