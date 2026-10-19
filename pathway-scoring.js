@@ -169,8 +169,7 @@
     };
   }
 
-  // Plain-language fit label for a match percentage (display only; the percentage itself is the
-  // workbook's number and is still shown). Bands come from config.pathway.fitLabels.
+  // Display-only label for a match %, from config.pathway.fitLabels.
   var DEFAULT_FIT = [{ id: 'strong', min: 45, label: 'Strong fit' }, { id: 'good', min: 30, label: 'Good fit' }, { id: 'possible', min: 0, label: 'Possible fit' }];
   function fitLabel(config, percent) {
     var bands = (config.pathway && config.pathway.fitLabels) || DEFAULT_FIT;

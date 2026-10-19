@@ -1,7 +1,6 @@
 /*
- * job-titles.js — suggestion list for Q03 (job title). NOT part of the workbook: draft list for
- * stakeholder review. Suggestions are a typing aid only; they never affect scoring, and visitors
- * can always keep their own wording. Each entry is [title, ...aliases].
+ * job-titles.js — Q03 suggestions. Draft list, not from the workbook. Never scored.
+ * Each entry: [title, ...aliases].
  */
 (function (root) {
   'use strict';

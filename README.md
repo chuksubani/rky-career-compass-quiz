@@ -63,14 +63,15 @@ Scripts must load in this order (see `index.html`): `quiz-core.js`, `pathway-sco
 
 ### The visitor's journey
 
-1. **Intro**, then **19 to 23 questions** in six stages. The UK work questions (Q19–Q22) only appear when relevant.
-2. **Results**, shown straight away and never gated:
-   - best match with a percentage and “why this fits you”
-   - two alternative pathway names and match percentages
-   - a brief training-readiness summary
-3. **One “Email my full results” button** opens the optional form. Marketing opt-ins are off by default. The form can be cancelled without losing the summary.
+1. **Intro**, then **19 to 23 questions** in six stages. The UK work questions (Q19–Q22) only appear when relevant. Progress counts within each stage ("About you · 2 of 5"), so the total never jumps. Single-choice answers picked by mouse or touch move on automatically after a short pause (`navigation.autoAdvance`). Keyboard users confirm with Continue, and Back is always available. On phones, Back and Continue stay pinned below long answer lists. Q07 (tools) uses a compact chip layout (`layout: 'chips'` in `quiz-config.js`), and on wide screens Back/Continue sit directly under the answers.
+2. A short "Matching your answers…" moment, then the **results**, shown straight away and never gated:
+   - **Best fit:** a simple line illustration for the pathway, its name, a fit label (Strong / Good / Possible, set by `pathway.fitLabels`: 45+, 30–44, under 30) next to the workbook's match percentage, three "why it fits" chips and one bootcamp button.
+   - **Your top 3:** rows with a relative bar. Open one to see skills to build, roles, a portfolio idea and its bootcamp link.
+   - **Your 90-day plan:** the segment's rows from the workbook's "90 Day Templates", tailored lines, and the UK guidance when relevant.
+   - **Training readiness** on a three-step scale.
+   - **Keep your results:** "Email it to me" (optional form, opt-ins off by default), "Save as PDF" (prints with every detail open), then quiet links to book an information session or retake the quiz.
 
-The email payload includes a `report` object containing the top three pathway breakdowns, skills, roles, portfolio ideas, readiness advice, full 90-day plan, tailored additions, avoidance notes and UK guidance when relevant. These details are not expanded on the summary screen. Your email backend must validate answers, reconstruct the report and deliver the email; this static widget does not send email itself. `/examples/compass.html` uses a mock submitter and sends no email.
+The email payload still includes the full `report` object. Your email backend must validate answers, reconstruct the report and deliver the email; this static widget does not send email itself. `/examples/compass.html` uses a mock submitter and sends no email.
 
 ### Scoring rules
 

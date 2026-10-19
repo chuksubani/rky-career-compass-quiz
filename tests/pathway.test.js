@@ -381,3 +381,16 @@ test('full email report retains conditional UK plan and guidance only when relev
   assert.ok(report.roadmap.conditionalRows.length > 0);
   assert.deepEqual(report.ukGuidance, cfg.pathway.ukGuidance);
 });
+
+test('fit labels follow the agreed cut-offs (45+ strong, 30-44 good, under 30 possible)', () => {
+  const f = (n) => PS.fitLabel(cfg, n).id;
+  assert.deepEqual([f(100), f(45), f(44), f(30), f(29), f(0)], ['strong', 'strong', 'good', 'good', 'possible', 'possible']);
+});
+
+test('Q07 uses the chip layout; layout is validated', () => {
+  assert.equal(cfg.questions.find((q) => q.id === 'Q07').layout, 'chips');
+  const bad = clone(cfg);
+  bad.questions.find((q) => q.id === 'Q03').layout = 'chips';
+  bad.questions.find((q) => q.id === 'Q02').layout = 'grid';
+  assert.equal(Core.validateConfig(bad).errors.filter((e) => /layout/.test(e)).length, 2);
+});

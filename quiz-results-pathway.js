@@ -4,13 +4,42 @@
  * object (DOM helper `h`, the scored result, the visitor's answers, event hooks, lead submitter).
  * Like the rest of the widget it only ever inserts text with textContent.
  *
- * Screen order: best match -> two alternatives -> readiness summary -> optional email form.
- * Supporting details are included in the full report payload, rather than the summary screen.
+ * Order: best fit, top 3, 90-day plan, readiness, keep your results.
  */
 (function (global) {
   'use strict';
 
   var KIND_LABEL = { interests: 'Interest', experience: 'Experience', strengths: 'Strength', tools: 'Tool' };
+
+  // Pathway illustrations (48x48). `a: 1` = accent fill.
+  var ART = {
+    DATA: [['path', { d: 'M8 40h32' }], ['rect', { x: 10, y: 26, width: 7, height: 12, rx: 2 }], ['rect', { x: 21, y: 18, width: 7, height: 20, rx: 2 }], ['rect', { x: 32, y: 9, width: 7, height: 29, rx: 2, a: 1 }]],
+    PM: [['rect', { x: 10, y: 7, width: 28, height: 35, rx: 4 }], ['path', { d: 'M16 17l3 3 5-6M16 28l3 3 5-6' }], ['path', { d: 'M28 17h5M28 28h5M16 37h17' }], ['circle', { cx: 38, cy: 9, r: 5, a: 1 }]],
+    BA: [['rect', { x: 6, y: 8, width: 14, height: 10, rx: 2 }], ['rect', { x: 28, y: 30, width: 14, height: 10, rx: 2, a: 1 }], ['circle', { cx: 35, cy: 13, r: 5 }], ['path', { d: 'M20 13h10M35 18v12M13 18v17h15' }]],
+    AML: [['rect', { x: 8, y: 6, width: 22, height: 30, rx: 3 }], ['path', { d: 'M13 14h12M13 20h8' }], ['circle', { cx: 30, cy: 30, r: 8, a: 1 }], ['path', { d: 'M36 36l6 6' }]],
+    AI: [['path', { d: 'M21 7c1.6 9.4 3.6 11.4 13 13-9.4 1.6-11.4 3.6-13 13-1.6-9.4-3.6-11.4-13-13 9.4-1.6 11.4-3.6 13-13z' }], ['path', { d: 'M37 29c.7 4 1.4 4.8 5 5.5-3.6.7-4.3 1.5-5 5.5-.7-4-1.4-4.8-5-5.5 3.6-.7 4.3-1.5 5-5.5z', a: 1 }]],
+    CYBER: [['path', { d: 'M24 6l14 5v11c0 9-6 16-14 20-8-4-14-11-14-20V11z' }], ['circle', { cx: 24, cy: 22, r: 4, a: 1 }], ['path', { d: 'M24 26v6' }]],
+    VA: [['path', { d: 'M12 28v-4a12 12 0 0124 0v4' }], ['rect', { x: 8, y: 26, width: 8, height: 12, rx: 3, a: 1 }], ['rect', { x: 32, y: 26, width: 8, height: 12, rx: 3 }], ['path', { d: 'M36 38c0 3.5-3.5 5-8 5h-2' }]]
+  };
+  var SVG_NS = 'http://www.w3.org/2000/svg';
+  function art(id) {
+    var shapes = ART[id];
+    if (!shapes) return null;
+    var svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('viewBox', '0 0 48 48');
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+    shapes.forEach(function (sh) {
+      var el = document.createElementNS(SVG_NS, sh[0]);
+      Object.keys(sh[1]).forEach(function (k) { if (k !== 'a') el.setAttribute(k, String(sh[1][k])); });
+      if (sh[1].a) el.setAttribute('class', 'qz-art-a');
+      svg.appendChild(el);
+    });
+    var box = document.createElement('div');
+    box.className = 'qz-art';
+    box.appendChild(svg);
+    return box;
+  }
 
   function render(ctx) {
     var h = ctx.h, r = ctx.result, cfg = ctx.cfg, pw = cfg.pathway, uid = ctx.uid;
@@ -32,23 +61,24 @@
       var mode = ctaMode();
       var url = ctx.Core.safeUrl(opts.url);
       var descId = uid + '-cta-' + opts.placement;
-      var attrs = { class: 'qz-btn ' + (opts.style === 'ghost' ? 'qz-btn-ghost' : 'qz-btn-primary'), href: url, 'aria-describedby': descId };
+      var cls = opts.style === 'ghost' ? 'qz-btn qz-btn-ghost' : opts.style === 'text' ? 'qz-btn-text' : 'qz-btn qz-btn-primary';
+      var attrs = { class: cls, href: url, 'aria-describedby': descId };
       if (mode === 'new-tab') { attrs.target = '_blank'; attrs.rel = 'noopener noreferrer'; }
       else if (mode === 'top') { attrs.target = '_top'; attrs.rel = 'noopener'; }
-      var a = h('a', attrs, opts.label);
+      var a = h('a', attrs, opts.label, mode === 'new-tab' && h('span', { class: 'qz-ext', 'aria-hidden': 'true', text: '↗' }));
       a.addEventListener('click', function (e) {
         ctx.trackCta({ kind: opts.kind, pathwayId: opts.pathway ? opts.pathway.id : null, url: url, placement: opts.placement });
         // "host" mode: the embedding page decides what happens, the widget does not navigate.
         if (mode === 'host') e.preventDefault();
       });
       return h('div', { class: 'qz-cta' }, a,
-        h('p', { id: descId, class: 'qz-cta-dest', text: destination(opts.kind, opts.pathway ? opts.pathway.name : '') }));
+        h('span', { id: descId, class: 'qz-sr', text: destination(opts.kind, opts.pathway ? opts.pathway.name : '') }));
     }
 
     function bootcampCta(entry, placement, style) {
       return ctaLink({
         kind: 'bootcamp', pathway: entry.pathway, placement: placement, style: style,
-        label: 'Explore this bootcamp',
+        label: placement === 'hero' ? 'Explore the bootcamp' : 'View this bootcamp',
         url: pw.cta.bootcamps[entry.id].url
       });
     }
@@ -70,55 +100,96 @@
       return wrap(parts);
     }
 
-    /* ----- hero: best match ----- */
+    /* ----- best fit ----- */
 
     var best = r.top[0];
-    var ring = h('div', { class: 'qz-ring', 'aria-hidden': 'true' });
-    ring.style.setProperty('--p', String(best.percent));
-    var panel = h('aside', { class: 'qz-panel', 'aria-label': 'Your top match' },
-      h('p', { class: 'qz-panel-label', text: 'Your top match' }),
-      h('div', { class: 'qz-ring-wrap' }, ring, h('div', { class: 'qz-ring-text' }, h('span', { class: 'qz-ring-pct', text: best.percent + '%' }))),
-      h('p', { class: 'qz-panel-sub', text: 'match with your answers' }));
-
-    var reasons = best.reasons.slice(0, 4);
-    var main = h('div', { class: 'qz-result-main' },
-      h('p', { class: 'qz-badge', text: 'Your best-fit pathway' }),
+    var topPct = Math.max(best.percent, 1);
+    var reasons = best.reasons.slice(0, 3);
+    parts.push(h('div', { class: 'qz-hero' },
+      art(best.id),
+      h('p', { class: 'qz-badge', text: 'Your best fit' }),
       h('h2', { id: uid + '-result', class: 'qz-result-title', tabindex: '-1', 'data-focus': true, text: best.pathway.name }),
-      h('p', { class: 'qz-lead', text: 'Built around: ' + best.pathway.signals + '.' }),
+      fitLine(best),
       reasons.length > 0 && h('div', { class: 'qz-topics' },
-        h('h3', { class: 'qz-h3', text: 'Why this fits you' }),
-        h('ul', { class: 'qz-benefits qz-reasons' }, reasons.map(function (x) {
-          return h('li', {}, h('span', { class: 'qz-tick', 'aria-hidden': 'true' }),
-            h('span', {}, h('span', { class: 'qz-reason-kind', text: KIND_LABEL[x.dimension] + ': ' }), x.text));
+        h('h3', { class: 'qz-h3', text: 'Why it fits' }),
+        h('ul', { class: 'qz-chips', 'aria-label': 'Answers that matched' }, reasons.map(function (x) {
+          return h('li', {}, h('span', { class: 'qz-sr', text: KIND_LABEL[x.dimension] + ': ' }), x.text);
         }))),
-      bootcampCta(best, 'hero', 'primary'));
-    parts.push(h('div', { class: 'qz-result-top' }, panel, main));
+      h('div', { class: 'qz-hero-actions' }, bootcampCta(best, 'hero', 'primary'))));
 
-    /* ----- alternatives: names and matches only ----- */
+    /* ----- top 3 ----- */
 
-    if (r.top.length > 1) {
-      parts.push(h('section', { class: 'qz-summary-section', 'aria-labelledby': uid + '-others' },
-        h('h3', { id: uid + '-others', class: 'qz-summary-heading', text: 'Other pathways to consider' }),
-        h('ol', { class: 'qz-summary-pathways' }, r.top.slice(1).map(function (e) {
+    parts.push(h('section', { class: 'qz-block', 'aria-labelledby': uid + '-top3' },
+      h('h3', { id: uid + '-top3', class: 'qz-block-h', text: 'Your top ' + r.top.length }),
+      h('ol', { class: 'qz-top3' }, r.top.map(function (e, i) {
+        var fill = h('span', { class: 'qz-bar-fill' });
+        fill.style.width = Math.max(4, Math.round(e.percent / topPct * 100)) + '%';
+        var p = e.pathway;
+        var penalty = r.avoidanceNotes.filter(function (n) { return n.pathwayId === e.id; })[0];
+        return h('li', {}, h('details', { class: 'qz-top3-item' },
+          h('summary', {},
+            h('span', { class: 'qz-top3-rank', text: String(i + 1) }),
+            h('span', { class: 'qz-top3-main' },
+              h('span', { class: 'qz-top3-name', text: p.name }),
+              h('span', { class: 'qz-bar', 'aria-hidden': 'true' }, fill)),
+            h('span', { class: 'qz-top3-fit' }, PS.fitLabel(cfg, e.percent).label, h('span', { class: 'qz-top3-pct', text: e.percent + '%' })),
+            h('span', { class: 'qz-chev', 'aria-hidden': 'true' })),
+          h('div', { class: 'qz-top3-body' },
+            p.skillGaps && p.skillGaps.length > 0 && h('div', {},
+              h('p', { class: 'qz-role-label', text: 'Skills to build' }),
+              h('ul', { class: 'qz-chips qz-chips-plain' }, p.skillGaps.map(function (t) { return h('li', { text: upperFirst(t) }); }))),
+            p.starterRoles && p.starterRoles.length > 0 && h('div', {},
+              h('p', { class: 'qz-role-label', text: 'Roles to aim for' }),
+              h('p', { text: p.starterRoles.join(' · ') + (p.progressionRoles && p.progressionRoles.length ? ', then ' + p.progressionRoles.join(' · ') : '') })),
+            p.portfolio && h('div', {},
+              h('p', { class: 'qz-role-label', text: 'Portfolio idea' }),
+              h('p', { text: p.portfolio })),
+            penalty && h('p', { class: 'qz-muted qz-small', text: 'Ranked a little lower because you said you’d rather avoid some of its core work.' }),
+            i > 0 && bootcampCta(e, 'top3-' + e.id, 'ghost'))));
+      }))));
+
+    /* ----- 90-day plan ----- */
+
+    var rm = r.roadmap;
+    if (rm.rows.length) {
+      parts.push(h('section', { class: 'qz-block', 'aria-labelledby': uid + '-plan' },
+        h('div', { class: 'qz-block-head' },
+          h('h3', { id: uid + '-plan', class: 'qz-block-h', text: 'Your 90-day plan' }),
+          h('span', { class: 'qz-pill', text: rm.segment })),
+        h('ol', { class: 'qz-plan' }, rm.rows.map(function (row) {
           return h('li', {},
-            h('h4', { class: 'qz-summary-pathway', text: e.pathway.name }),
-            h('span', { class: 'qz-summary-match', text: e.percent + '% match' }));
-        }))));
+            h('span', { class: 'qz-plan-dot', 'aria-hidden': 'true' }),
+            h('p', { class: 'qz-plan-period', text: periodLabel(row.period) }),
+            h('p', { class: 'qz-plan-action', text: row.action }));
+        })),
+        rm.addons.length > 0 && h('div', { class: 'qz-tailored' },
+          h('p', { class: 'qz-role-label', text: 'Tailored for you' }),
+          h('ul', { class: 'qz-list' }, rm.addons.map(function (a) { return h('li', { text: a.text }); }))),
+        rm.conditional && pw.ukGuidance && h('div', { class: 'qz-note qz-uk' },
+          h('p', { class: 'qz-h4', text: pw.ukGuidance.title }),
+          pw.ukGuidance.body.map(function (t) { return h('p', { text: t }); }))));
     }
 
-    parts.push(h('section', { class: 'qz-summary-section', 'aria-labelledby': uid + '-ready' },
-      h('h3', { id: uid + '-ready', class: 'qz-summary-heading', text: 'Your training readiness' }),
-      h('p', { class: 'qz-muted' },
-        h('strong', { class: 'qz-summary-readiness', text: r.readiness.label + '. ' }), r.readiness.summary)));
+    /* ----- readiness ----- */
 
-    /* ----- one email action; the form opens only when requested ----- */
+    var levels = pw.readiness.labels.slice().sort(function (a, b) { return a.min - b.min; });
+    parts.push(h('section', { class: 'qz-block', 'aria-labelledby': uid + '-ready' },
+      h('h3', { id: uid + '-ready', class: 'qz-block-h', text: 'Training readiness' }),
+      h('ol', { class: 'qz-levels', 'aria-label': 'Readiness scale' }, levels.map(function (l) {
+        var cur = l.id === r.readiness.id;
+        return h('li', { class: 'qz-level' + (cur ? ' is-current' : ''), 'aria-current': cur ? 'step' : null, text: l.label });
+      })),
+      h('p', { class: 'qz-ready-sum', text: r.readiness.summary })));
 
-    var emailSection = h('section', { class: 'qz-summary-email qz-no-print', 'aria-labelledby': uid + '-email' });
-    var actions = h('div', { class: 'qz-actions qz-summary-actions' });
+    /* ----- keep your results ----- */
+
+    var keep = h('section', { class: 'qz-block qz-keep qz-no-print', 'aria-labelledby': uid + '-keep' },
+      h('h3', { id: uid + '-keep', class: 'qz-block-h', text: 'Keep your results' }));
+    var actions = h('div', { class: 'qz-actions qz-keep-actions' });
+    var printBtn = h('button', { type: 'button', class: 'qz-btn qz-btn-ghost', text: 'Save as PDF', onclick: printResults });
     if (ctx.lc && ctx.leadSubmitter) {
       var form = reportForm(function () {
-        form.hidden = true;
-        emailButton.hidden = false;
+        form.hidden = true; actions.hidden = false;
         emailButton.setAttribute('aria-expanded', 'false');
         emailButton.focus();
         ctx.queueHeight();
@@ -126,29 +197,36 @@
       form.id = uid + '-report-form';
       form.hidden = true;
       var emailButton = h('button', {
-        type: 'button', class: 'qz-btn qz-btn-primary', text: 'Email my full results',
+        type: 'button', class: 'qz-btn qz-btn-primary', text: 'Email it to me',
         'aria-expanded': 'false', 'aria-controls': form.id,
         onclick: function () {
-          form.hidden = false;
-          emailButton.hidden = true;
+          form.hidden = false; actions.hidden = true;
           emailButton.setAttribute('aria-expanded', 'true');
           form.querySelector('input').focus();
           ctx.queueHeight();
         }
       });
-      emailSection.appendChild(h('h3', { id: uid + '-email', class: 'qz-summary-heading', text: 'Keep your full results' }));
-      emailSection.appendChild(h('p', { class: 'qz-muted', text: 'We’ll email your pathway breakdown, skills to build and personalised 90-day plan.' }));
       actions.appendChild(emailButton);
-      emailSection.appendChild(form);
+      actions.appendChild(printBtn);
+      keep.appendChild(actions);
+      keep.appendChild(form);
     } else {
-      emailSection.appendChild(h('h3', { id: uid + '-email', class: 'qz-summary-heading', text: 'Talk through your results' }));
-      emailSection.appendChild(infoSessionCta('next-step', 'primary'));
+      actions.appendChild(printBtn);
+      keep.appendChild(actions);
     }
-    actions.appendChild(h('button', { type: 'button', class: 'qz-btn qz-btn-ghost', text: 'Retake the quiz', onclick: ctx.restart }));
-    emailSection.appendChild(actions);
-    parts.push(emailSection);
+    keep.appendChild(h('div', { class: 'qz-quiet-actions' },
+      infoSessionCta('keep', 'text'),
+      h('button', { type: 'button', class: 'qz-btn-text', text: 'Retake the quiz', onclick: ctx.restart })));
+    parts.push(keep);
     if (cfg.results && cfg.results.disclaimer) parts.push(h('p', { class: 'qz-disclaimer', text: cfg.results.disclaimer }));
     return wrap(parts);
+
+    function fitLine(e) {
+      var fit = PS.fitLabel(cfg, e.percent);
+      return h('p', { class: 'qz-fit' },
+        h('span', { class: 'qz-fit-chip is-' + fit.id, text: fit.label }),
+        h('span', { class: 'qz-fit-pct', text: e.percent + '% match' }));
+    }
 
     /* ----- helpers ----- */
 
@@ -158,9 +236,21 @@
 
     function actionsView() {
       return h('div', { class: 'qz-actions qz-actions-center qz-no-print' },
-        !r.insufficient && h('button', { type: 'button', class: 'qz-btn qz-btn-ghost', onclick: function () { try { global.print(); } catch (e) { /* ignore */ } } }, 'Save my results'),
         h('button', { type: 'button', class: 'qz-btn qz-btn-ghost', text: 'Retake the quiz', onclick: ctx.restart }));
     }
+
+    // Open all rows for printing.
+    function printResults() {
+      var root = document.getElementById(uid + '-result');
+      var card = root && root.closest('.qz-results');
+      var closed = card ? Array.prototype.slice.call(card.querySelectorAll('details:not([open])')) : [];
+      closed.forEach(function (d) { d.open = true; });
+      try { global.print(); } catch (e) { /* ignore */ }
+      closed.forEach(function (d) { d.open = false; });
+    }
+
+    function upperFirst(t) { t = String(t || ''); return t.charAt(0).toUpperCase() + t.slice(1); }
+    function periodLabel(p) { return /^\d+-\d+$/.test(p) ? 'Days ' + p.replace('-', '–') : p; }
 
     /* ----- "Email me my results" form ----- */
 

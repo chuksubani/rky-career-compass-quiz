@@ -21,8 +21,7 @@
 
   function normQuery(v) { return String(v == null ? '' : v).toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 
-  // Ranks items ({text, aliases}) against what the visitor typed. Returns [{text, start, end, alias}],
-  // best first. start/end locate the match inside `text` (for highlighting); -1 when matched via alias.
+  // Ranks {text, aliases} items by match. start/end mark the highlight (-1 for alias hits).
   function suggest(query, items, limit) {
     var q = normQuery(query);
     if (!q || !Array.isArray(items)) return [];
@@ -36,14 +35,14 @@
         else if (pos === 0) rank = 1;
         else if (n.charAt(pos - 1) === ' ') rank = 2;
         else rank = 3;
-        rank = rank * 2 + (i === 0 ? 0 : 1);          // the real title beats an alias at equal rank
+        rank = rank * 2 + (i === 0 ? 0 : 1);          // title beats alias
         if (!best || rank < best.rank) best = { rank: rank, alias: i > 0, pos: pos };
       });
       if (best) out.push({ text: it.text, rank: best.rank, idx: idx, alias: best.alias, pos: best.pos });
     });
     out.sort(function (a, b) { return a.rank - b.rank || a.text.length - b.text.length || a.idx - b.idx; });
     return out.slice(0, limit || 6).map(function (m) {
-      var plain = normQuery(m.text) === m.text.toLowerCase() ? m.pos : -1;   // highlight only when offsets line up
+      var plain = normQuery(m.text) === m.text.toLowerCase() ? m.pos : -1;
       return { text: m.text, alias: m.alias, start: m.alias ? -1 : plain, end: m.alias || plain < 0 ? -1 : plain + q.length };
     });
   }
@@ -176,6 +175,7 @@
           if (!isPathway) err(p + '.showIf', 'conditional questions are only supported in pathway quizzes');
           else validateCondition(q.showIf, p + '.showIf', earlierIds(qIds, q.id), err);
         }
+        if (q.layout !== undefined && (q.layout !== 'chips' || q.type === 'text')) err(p + '.layout', 'must be "chips", and only applies to choice questions');
         if (q.suggest !== undefined && (q.type !== 'text' || !isStr(q.suggest))) err(p + '.suggest', 'must be a list name, and only applies to text questions');
         if (q.maxSelections !== undefined && (!Number.isInteger(q.maxSelections) || q.maxSelections < 1)) err(p + '.maxSelections', 'must be a positive whole number');
         if (q.maxSelections !== undefined && q.type !== 'multiple') err(p + '.maxSelections', 'only applies to multiple-choice questions');

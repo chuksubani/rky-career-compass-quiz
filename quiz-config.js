@@ -24,6 +24,7 @@ window.QUIZ_CONFIG = (function (D) {
   var WHY_UK = 'This only helps us point you to the right guidance. It never changes your career match, and it isn’t legal advice.';
   var QUESTION_COPY = {
     Q03: { placeholder: 'For example: Customer service assistant', suggest: 'jobTitles' },
+    Q07: { layout: 'chips' },
     Q19: { note: WHY_UK },
     Q20: { note: WHY_UK },
     Q21: { note: WHY_UK },
@@ -81,8 +82,7 @@ window.QUIZ_CONFIG = (function (D) {
       avoidance: D.avoidance,
       avoidanceQuestion: 'Q12',
 
-      // Plain-language label shown next to each match percentage (display only, never scored).
-      // Agreed cut-offs: 45+ strong, 30-44 good, under 30 possible.
+      // Display-only fit labels: 45+ strong, 30-44 good, under 30 possible.
       fitLabels: [
         { id: 'strong', min: 45, label: 'Strong fit' },
         { id: 'good', min: 30, label: 'Good fit' },
@@ -158,8 +158,7 @@ window.QUIZ_CONFIG = (function (D) {
       ukGuidance: {
         title: 'About UK work permission',
         body: [
-          'Your UK work answers never change your career match. We use them only to point you to the right guidance.',
-          'This isn’t legal advice and we can’t confirm whether you’re allowed to take a particular job or course. Check your permission and any sponsorship conditions with your employer and, where needed, a regulated immigration adviser.'
+          'Your UK answers never change your match. This isn’t legal advice: check your permission with your employer and, if needed, a regulated immigration adviser.'
         ]
       },
 

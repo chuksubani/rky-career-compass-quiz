@@ -53,8 +53,7 @@
     return frag;
   }
 
-  // Typeahead for a text input: suggestions are a typing aid only. Whatever is in the field stays
-  // the answer, so visitors can always use their own wording. Plain text nodes only.
+  // Typeahead. The field's text is always the answer; suggestions only help.
   function attachSuggest(field, wrap, pool, id, onPick) {
     var listId = id + '-suggest', statusId = id + '-suggest-status';
     var list = h('ul', { class: 'qz-suggest', id: listId, role: 'listbox', hidden: true });
@@ -104,7 +103,7 @@
             ? [m.text.slice(0, m.start), h('strong', { text: m.text.slice(m.start, m.end) }), m.text.slice(m.end)]
             : [m.text];
           var li = h('li', { class: 'qz-suggest-opt', role: 'option', id: id + '-opt-' + i, 'aria-selected': 'false' }, label);
-          // mousedown, not click: the input would blur and close the list before a click lands.
+          // mousedown: fires before the input's blur closes the list.
           li.addEventListener('mousedown', function (e) { e.preventDefault(); pick(i); });
           list.appendChild(li);
         });
@@ -124,7 +123,7 @@
       } else if (e.key === 'ArrowUp' && open) {
         setActive((active - 1 + matches.length) % matches.length); e.preventDefault();
       } else if (e.key === 'Enter' && open && active >= 0) {
-        e.preventDefault(); pick(active);          // otherwise Enter submits the form with what was typed
+        e.preventDefault(); pick(active);
       } else if (e.key === 'Escape' && !list.hidden) {
         close(); e.preventDefault(); e.stopPropagation();
       }
@@ -190,6 +189,9 @@
     rootEl.appendChild(stage);
 
     var allowBack = !(cfg.navigation && cfg.navigation.allowBack === false);
+    var autoAdvance = !!(cfg.navigation && cfg.navigation.autoAdvance);
+    var advanceTimer = null;
+    var reduceMotion = !!(global.matchMedia && global.matchMedia('(prefers-reduced-motion: reduce)').matches);
     var state = freshState();
     var userMoved = false; // only move focus after the visitor has interacted
     var renderers = global.QuizWidgetRenderers || {};
@@ -291,6 +293,7 @@
     /* ----- navigation ----- */
 
     function go(phase, extra) {
+      clearTimeout(advanceTimer);
       var prevPhase = state.phase;
       state.phase = phase;
       if (extra) Object.keys(extra).forEach(function (k) { state[k] = extra[k]; });
@@ -309,11 +312,14 @@
       var q = vis[state.index];
       if (!Core.canAdvance(q, state.answers)) return; // never move past a required question
       if (state.index < vis.length - 1) return go('question', { index: state.index + 1, direction: 'forward' });
-      if (state.phase === 'results') return; // already finished: ignore duplicate submits
+      if (state.phase === 'results' || state.phase === 'matching') return; // already finished: ignore duplicate submits
       state.result = Core.score(cfg, state.answers);
       state.completedAt = new Date().toISOString();
       emit('quiz:completed', resultSummary(state.result));
-      go('results');
+      if (cfg.type !== 'pathway' || reduceMotion) return go('results');
+      go('matching');
+      var t = setTimeout(function () { if (!destroyed && state.phase === 'matching') go('results'); }, 1100);
+      cleanups.push(function () { clearTimeout(t); });
     }
 
     function back() {
@@ -345,7 +351,8 @@
     function render(keepScroll) {
       if (destroyed) return;
       stage.textContent = '';
-      var view = state.phase === 'intro' ? introView() : state.phase === 'question' ? questionView() : resultsView();
+      var view = state.phase === 'intro' ? introView() : state.phase === 'question' ? questionView()
+        : state.phase === 'matching' ? matchingView() : resultsView();
       view.classList.add('qz-view', state.direction === 'back' ? 'qz-from-left' : 'qz-from-right');
       stage.appendChild(view);
       if (userMoved) {
@@ -353,15 +360,23 @@
         if (target) target.focus({ preventScroll: !!keepScroll });
       }
       if (state.phase === 'question') live.textContent = progressText(false);
+      else if (state.phase === 'matching') live.textContent = 'Matching your answers to pathways.';
       else if (state.phase === 'results') live.textContent = 'Quiz complete. Your result is shown.';
       queueHeight();
+    }
+
+    function matchingView() {
+      return h('section', { class: 'qz-card qz-matching', 'aria-busy': 'true' },
+        h('span', { class: 'qz-spinner', 'aria-hidden': 'true' }),
+        h('p', { class: 'qz-matching-text', tabindex: '-1', 'data-focus': true, text: 'Matching your answers to pathways…' }));
     }
 
     function introView() {
       var total = cfg.questions.length;
       var always = cfg.questions.filter(function (q) { return !q.showIf; }).length;
-      var meta = [always < total ? always + ' to ' + total + ' questions' : plural(total, 'question', 'questions')];
+      var meta = [];
       if (cfg.estimatedMinutes) meta.push('About ' + plural(cfg.estimatedMinutes, 'minute', 'minutes'));
+      else meta.push(always < total ? always + ' to ' + total + ' questions' : plural(total, 'question', 'questions'));
       if (cfg.audience) meta.push(cfg.audience);
       var intro = cfg.intro || {};
       var hasBullets = Array.isArray(intro.bullets) && intro.bullets.length > 0;
@@ -400,7 +415,7 @@
         if (!ids.length) return;
         var at = ids.indexOf(q.id);
         var seg = { state: '', fraction: 1 };
-        if (at !== -1) { seg.state = 'cur'; seg.fraction = (at + 1) / ids.length; info.stageIndex = info.segments.length; info.stageTitle = st.title; }
+        if (at !== -1) { seg.state = 'cur'; seg.fraction = (at + 1) / ids.length; info.stageIndex = info.segments.length; info.stageTitle = st.title; info.stagePos = at + 1; info.stageLen = ids.length; }
         else if (info.segments.length > 0 && info.stageTitle) seg.state = '';   // after the current stage
         else seg.state = 'on';
         info.segments.push(seg);
@@ -473,12 +488,14 @@
             id: uid + '-' + q.id + '-' + c.id, checked: selected.indexOf(c.id) !== -1,
             onchange: function (e) { onChoice(q, form, e.target); }
           });
+          // Pointer presses only: arrow keys must not auto-advance.
+          input.addEventListener('pointerdown', function () { form.pointerAt = Date.now(); });
           return h('label', { class: 'qz-choice' }, input,
             h('span', { class: 'qz-choice-body' },
               h('span', { class: 'qz-mark qz-mark-' + (multi ? 'box' : 'dot'), 'aria-hidden': 'true' }),
               h('span', { class: 'qz-choice-text' }, rich(c.text))));
         });
-        answerArea = h('fieldset', { class: 'qz-choices', 'aria-labelledby': qid, 'aria-describedby': hintId + (maxSel ? ' ' + limitId : '') }, choices);
+        answerArea = h('fieldset', { class: 'qz-choices' + (q.layout === 'chips' ? ' qz-choices-chips' : ''), 'aria-labelledby': qid, 'aria-describedby': hintId + (maxSel ? ' ' + limitId : '') }, choices);
       }
 
       var prog = progressInfo(vis);
@@ -488,11 +505,12 @@
         return seg;
       });
       var staged = Array.isArray(cfg.stages);
-      var cheer = staged ? ('Question ' + prog.position + ' of ' + prog.count)
+      // Per-stage count, so conditional questions don't change the total.
+      var cheer = staged ? (prog.stageLen ? prog.stagePos + ' of ' + prog.stageLen : '')
         : (isLast && total > 1 ? 'Last one!' : (total > 3 && state.index + 1 === Math.ceil(total / 2) ? 'Halfway there' : ''));
       var stepText = staged ? prog.stageTitle : 'Question ' + prog.position + ' of ' + total;
-      var hintText = isText ? (q.required === false ? 'Optional' : 'Type your answer')
-        : multi ? (maxSel ? 'Choose up to ' + maxSel : 'Select all that apply') : 'Choose one answer';
+      var hintText = multi ? (maxSel ? 'Choose up to ' + maxSel : 'Select all that apply')
+        : q.required === false ? 'Optional' : '';
 
       var form = h('form', { class: 'qz-card qz-question', novalidate: true, onsubmit: function (e) { e.preventDefault(); next(); } },
         h('div', { class: 'qz-progress-head' },
@@ -563,6 +581,16 @@
       state.answers[q.id] = ids;
       syncChoices(q, form);
       form.syncContinue();
+      // Auto-advance single choice after a pointer pick; keyboard users press Continue.
+      var vis = visibleQuestions();
+      var fromPointer = form.pointerAt && Date.now() - form.pointerAt < 1500;
+      if (autoAdvance && q.type === 'single' && fromPointer && state.index < vis.length - 1 && Core.canAdvance(q, state.answers)) {
+        clearTimeout(advanceTimer);
+        var at = state.index;
+        advanceTimer = setTimeout(function () {
+          if (!destroyed && state.phase === 'question' && state.index === at) { userMoved = true; next(); }
+        }, reduceMotion ? 120 : 320);
+      }
     }
 
     /* ----- result renderers for extra quiz types ----- */
