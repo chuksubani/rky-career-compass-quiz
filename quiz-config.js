@@ -55,7 +55,7 @@ window.QUIZ_CONFIG = (function (D) {
         'The skills to build and roles to explore',
         'A 90-day plan shaped by your goals'
       ],
-      note: 'Takes about 6 minutes. Nothing is sent unless you ask for your results by email.'
+      note: 'Takes about 6 minutes.'
     },
 
     navigation: { allowBack: true, autoAdvance: true },
