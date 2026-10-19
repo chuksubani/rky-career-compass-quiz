@@ -57,7 +57,7 @@ window.QUIZ_CONFIG = (function (D) {
       note: 'Takes about 6 minutes. Nothing is sent unless you ask for your results by email.'
     },
 
-    navigation: { allowBack: true },
+    navigation: { allowBack: true, autoAdvance: true },
 
     // Progress is shown per stage, because the UK questions only appear for some visitors.
     stages: [
@@ -80,6 +80,14 @@ window.QUIZ_CONFIG = (function (D) {
       weights: D.weights,
       avoidance: D.avoidance,
       avoidanceQuestion: 'Q12',
+
+      // Plain-language label shown next to each match percentage (display only, never scored).
+      // Agreed cut-offs: 45+ strong, 30-44 good, under 30 possible.
+      fitLabels: [
+        { id: 'strong', min: 45, label: 'Strong fit' },
+        { id: 'good', min: 30, label: 'Good fit' },
+        { id: 'possible', min: 0, label: 'Possible fit' }
+      ],
       templates: D.templates,
 
       // Readiness is a separate label from the match (workbook row 16). Not a job-readiness claim.

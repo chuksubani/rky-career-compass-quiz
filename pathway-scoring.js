@@ -169,6 +169,15 @@
     };
   }
 
+  // Plain-language fit label for a match percentage (display only; the percentage itself is the
+  // workbook's number and is still shown). Bands come from config.pathway.fitLabels.
+  var DEFAULT_FIT = [{ id: 'strong', min: 45, label: 'Strong fit' }, { id: 'good', min: 30, label: 'Good fit' }, { id: 'possible', min: 0, label: 'Possible fit' }];
+  function fitLabel(config, percent) {
+    var bands = (config.pathway && config.pathway.fitLabels) || DEFAULT_FIT;
+    var sorted = bands.slice().sort(function (a, b) { return b.min - a.min; });
+    return sorted.filter(function (b) { return percent >= b.min; })[0] || sorted[sorted.length - 1];
+  }
+
   // Fields the CRM wants besides the raw answers (workbook sheet "CRM Data Fields").
   // `config.pathway.crmMap` maps a CRM field to the question it comes from.
   function crmFields(config, answers, result) {
@@ -266,6 +275,6 @@
 
   return {
     score: score, scorePathways: scorePathways, readiness: readiness, roadmap: roadmap,
-    crmFields: crmFields, suggestedCta: suggestedCta, leadPayload: leadPayload
+    fitLabel: fitLabel, crmFields: crmFields, suggestedCta: suggestedCta, leadPayload: leadPayload
   };
 }));

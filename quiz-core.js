@@ -288,6 +288,7 @@
     if (config.navigation !== undefined) {
       if (!isObj(config.navigation)) err('navigation', 'must be an object');
       else if (config.navigation.allowBack !== undefined && typeof config.navigation.allowBack !== 'boolean') err('navigation.allowBack', 'must be true or false');
+      if (isObj(config.navigation) && config.navigation.autoAdvance !== undefined && typeof config.navigation.autoAdvance !== 'boolean') err('navigation.autoAdvance', 'must be true or false');
     }
     if (config.theme !== undefined) {
       if (!isObj(config.theme)) err('theme', 'must be an object');
