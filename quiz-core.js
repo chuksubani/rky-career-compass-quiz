@@ -264,6 +264,15 @@
       }
     }
 
+    // Name step
+    var ns = config.nameStep;
+    if (ns !== undefined) {
+      if (!isObj(ns)) err('nameStep', 'must be an object');
+      else ['heading', 'hint', 'placeholder'].forEach(function (k) {
+        if (ns[k] !== undefined && !isStr(ns[k])) err('nameStep.' + k, 'must be a non-empty string');
+      });
+    }
+
     // Integration
     if (config.integration !== undefined) {
       if (!isObj(config.integration)) err('integration', 'must be an object');

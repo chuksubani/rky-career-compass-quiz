@@ -181,6 +181,15 @@ window.QUIZ_CONFIG = (function (D) {
       }
     },
 
+    // Asked after the last question, before the result. Pre-fills the lead form below.
+    nameStep: {
+      enabled: true,
+      required: true,
+      heading: 'Before we show your results, what’s your name?',
+      hint: 'We’ll use it to personalise your results.',
+      placeholder: 'Your first name'
+    },
+
     // Shown after the result and never gates it. PLACEHOLDER endpoint: replace with your API.
     leadCapture: {
       enabled: true,

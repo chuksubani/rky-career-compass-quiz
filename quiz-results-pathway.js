@@ -92,7 +92,7 @@
 
     if (r.insufficient) {
       parts.push(h('div', { class: 'qz-result-main qz-path-empty' },
-        h('p', { class: 'qz-badge', text: 'Your result' }),
+        h('p', { class: 'qz-badge', text: ctx.name ? ctx.name + ', here’s your result' : 'Your result' }),
         h('h2', { id: uid + '-result', class: 'qz-result-title', tabindex: '-1', 'data-focus': true, text: 'Not enough information to recommend a pathway' }),
         h('p', { class: 'qz-lead', text: 'Your answers didn’t point to a clear match yet. That usually means none of the skills, tools or activities listed applied. Retake the quiz and pick what fits you, or talk it through with an adviser.' }),
         infoSessionCta('insufficient', 'primary')));
@@ -107,7 +107,7 @@
     var reasons = best.reasons.slice(0, 3);
     parts.push(h('div', { class: 'qz-hero' },
       art(best.id),
-      h('p', { class: 'qz-badge', text: 'Your best fit' }),
+      h('p', { class: 'qz-badge', text: ctx.name ? ctx.name + ', here’s your best fit' : 'Your best fit' }),
       h('h2', { id: uid + '-result', class: 'qz-result-title', tabindex: '-1', 'data-focus': true, text: best.pathway.name }),
       fitLine(best),
       reasons.length > 0 && h('div', { class: 'qz-topics' },
@@ -267,6 +267,7 @@
       }
 
       var nameF = lc.collectName ? field('name', 'Name', 'text', 'name', !!lc.nameRequired) : null;
+      if (nameF && ctx.name) nameF.input.value = ctx.name;
       var emailF = field('email', 'Email address', 'email', 'email', true);
       var waF = lc.collectWhatsApp ? field('whatsapp', 'WhatsApp number', 'tel', 'tel', false, 'Include your country code, for example +234…') : null;
 

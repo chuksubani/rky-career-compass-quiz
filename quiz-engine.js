@@ -200,8 +200,9 @@
     if (cfg.type === 'pathway' && !customResults) return fail(['quiz-results-pathway.js did not load. Check that it is included before quiz-engine.js.']);
 
     function freshState() {
-      return { phase: 'intro', index: 0, answers: {}, result: null, direction: 'forward', startedAt: null, completedAt: null, leadId: null, courseInterest: [] };
+      return { phase: 'intro', index: 0, answers: {}, result: null, direction: 'forward', startedAt: null, completedAt: null, leadId: null, courseInterest: [], name: '' };
     }
+    var nameStep = cfg.nameStep && cfg.nameStep.enabled ? cfg.nameStep : null;
 
     // Questions the visitor will actually see, given the answers so far. Conditions only look
     // backwards, so the position of the current question never shifts while it is on screen.
@@ -312,7 +313,13 @@
       var q = vis[state.index];
       if (!Core.canAdvance(q, state.answers)) return; // never move past a required question
       if (state.index < vis.length - 1) return go('question', { index: state.index + 1, direction: 'forward' });
-      if (state.phase === 'results' || state.phase === 'matching') return; // already finished: ignore duplicate submits
+      if (state.phase !== 'question') return; // already finished: ignore duplicate submits
+      if (nameStep) return go('name', { direction: 'forward' });
+      finish();
+    }
+
+    function finish() {
+      if (state.phase === 'results' || state.phase === 'matching') return;
       state.result = Core.score(cfg, state.answers);
       state.completedAt = new Date().toISOString();
       emit('quiz:completed', resultSummary(state.result));
@@ -352,7 +359,7 @@
       if (destroyed) return;
       stage.textContent = '';
       var view = state.phase === 'intro' ? introView() : state.phase === 'question' ? questionView()
-        : state.phase === 'matching' ? matchingView() : resultsView();
+        : state.phase === 'name' ? nameView() : state.phase === 'matching' ? matchingView() : resultsView();
       view.classList.add('qz-view', state.direction === 'back' ? 'qz-from-left' : 'qz-from-right');
       stage.appendChild(view);
       if (userMoved) {
@@ -360,6 +367,7 @@
         if (target) target.focus({ preventScroll: !!keepScroll });
       }
       if (state.phase === 'question') live.textContent = progressText(false);
+      else if (state.phase === 'name') live.textContent = 'All questions answered. One last step before your results.';
       else if (state.phase === 'matching') live.textContent = 'Matching your answers to pathways.';
       else if (state.phase === 'results') live.textContent = 'Quiz complete. Your result is shown.';
       queueHeight();
@@ -535,6 +543,61 @@
       return form;
     }
 
+    // Asked after the last question, before scoring. Stays in the browser unless the lead form is sent.
+    function nameView() {
+      var required = nameStep.required !== false;
+      var hId = uid + '-name-h', hintId = uid + '-name-hint', errId = uid + '-name-err';
+      var field = h('input', {
+        class: 'qz-text qz-text-lg', type: 'text', id: uid + '-name', name: 'name', maxlength: 80,
+        autocomplete: 'given-name', autocapitalize: 'words', spellcheck: 'false', enterkeyhint: 'done',
+        placeholder: nameStep.placeholder, 'aria-labelledby': hId, 'aria-describedby': hintId + ' ' + errId,
+        'aria-required': required ? 'true' : null
+      });
+      field.value = state.name;
+      var err = h('p', { class: 'qz-field-error', id: errId, hidden: true });
+      var contText = h('span');
+      var cont = h('button', { type: 'submit', class: 'qz-btn qz-btn-primary' }, contText);
+      function sync() {
+        var has = field.value.trim() !== '';
+        contText.textContent = has || required ? 'See my results' : 'Skip';
+        if (has) { err.hidden = true; field.removeAttribute('aria-invalid'); }
+      }
+      field.addEventListener('input', function () { state.name = field.value; sync(); });
+      sync();
+
+      var prog = progressInfo(visibleQuestions());
+      var segs = prog.segments.map(function () { return h('span', { class: 'qz-seg is-on' }); });
+
+      return h('form', {
+        class: 'qz-card qz-question qz-name-step', novalidate: true,
+        onsubmit: function (e) {
+          e.preventDefault();
+          state.name = field.value.trim();
+          if (required && !state.name) {
+            err.textContent = 'Please enter your name to see your results.';
+            err.hidden = false;
+            field.setAttribute('aria-invalid', 'true');
+            field.focus();
+            return queueHeight();
+          }
+          finish();
+        }
+      },
+        h('div', { class: 'qz-progress-head' },
+          h('p', {}, h('span', { class: 'qz-step', text: 'Almost done' }), h('span', { class: 'qz-cheer', text: 'Last step' })),
+          restartControl()),
+        h('div', { class: 'qz-progress', role: 'progressbar', 'aria-label': 'Quiz progress', 'aria-valuemin': '1', 'aria-valuemax': String(prog.stageCount), 'aria-valuenow': String(prog.stageCount), 'aria-valuetext': 'All questions answered' }, segs),
+        h('div', { class: 'qz-q-main' },
+          h('h2', { id: hId, class: 'qz-question-text', tabindex: '-1', 'data-focus': true, text: nameStep.heading || 'What’s your name?' }),
+          h('p', { id: hintId, class: 'qz-hint', text: nameStep.hint || (required ? '' : 'Optional') })),
+        h('div', { class: 'qz-choices qz-text-wrap qz-field' }, field, err),
+        h('div', { class: 'qz-actions' },
+          allowBack
+            ? h('button', { type: 'button', class: 'qz-btn qz-btn-ghost', onclick: function () { go('question', { index: visibleQuestions().length - 1, direction: 'back' }); } }, h('span', { class: 'qz-arrow', 'aria-hidden': 'true', text: '←' }), 'Back')
+            : h('span'),
+          cont));
+    }
+
     // Two-step restart (no modal dialogs): first tap arms it, second tap restarts.
     function restartControl() {
       var armed = false, timer = null;
@@ -605,7 +668,7 @@
         h: h, rich: rich, uid: uid, cfg: cfg, Core: Core, result: r,
         answers: Core.resolve(cfg, state.answers).answers,
         leadId: state.leadId, startedAt: state.startedAt, completedAt: state.completedAt,
-        courseInterest: state.courseInterest,
+        courseInterest: state.courseInterest, name: state.name,
         lc: lc, leadSubmitter: leadSubmitter,
         emit: emit, trackCta: trackCta, queueHeight: queueHeight, restart: restart, fmt: fmt, plural: plural,
         isDestroyed: function () { return destroyed; }
@@ -748,6 +811,7 @@
       }
 
       var nameF = lc.collectName ? field('name', 'Name', 'text', 'name', !!lc.nameRequired) : null;
+      if (nameF) nameF.input.value = state.name;
       var emailF = field('email', 'Email address', 'email', 'email', true);
       var consentRequired = !!(lc.consent && lc.consent.required);
       var consentBox = lc.consent && h('input', { type: 'checkbox', id: uid + '-f-consent', name: 'consent', 'aria-describedby': uid + '-f-consent-err' });

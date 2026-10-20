@@ -64,7 +64,8 @@ Scripts must load in this order (see `index.html`): `quiz-core.js`, `pathway-sco
 ### The visitor's journey
 
 1. **Intro**, then **19 to 23 questions** in six stages. The UK work questions (Q19–Q22) only appear when relevant. Progress counts within each stage ("About you · 2 of 5"), so the total never jumps. Single-choice answers picked by mouse or touch move on automatically after a short pause (`navigation.autoAdvance`). Keyboard users confirm with Continue, and Back is always available. On phones, Back and Continue stay pinned below long answer lists. Q07 (tools) uses a compact chip layout (`layout: 'chips'` in `quiz-config.js`), and on wide screens Back/Continue sit directly under the answers.
-2. A short "Matching your answers…" moment, then the **results**, shown straight away and never gated:
+2. A **name step** ("Before we show your results, what’s your name?"). The name personalises the result heading and pre-fills the "Email it to me" form. It stays in the browser unless that form is sent. Set `nameStep` in `quiz-config.js`: `enabled`, `required` (default `true`; `false` adds a Skip), `heading`, `hint`, `placeholder`.
+3. A short "Matching your answers…" moment, then the **results**, never gated by the email form:
    - **Best fit:** a simple line illustration for the pathway, its name, a fit label (Strong / Good / Possible, set by `pathway.fitLabels`: 45+, 30–44, under 30) next to the workbook's match percentage, three "why it fits" chips and one bootcamp button.
    - **Your top 3:** rows with a relative bar. Open one to see skills to build, roles, a portfolio idea and its bootcamp link.
    - **Your 90-day plan:** the segment's rows from the workbook's "90 Day Templates", tailored lines, and the UK guidance when relevant.
@@ -192,7 +193,7 @@ Content-Security-Policy: frame-ancestors 'self' https://www.your-site.example
 
 ## Lead form and data
 
-Results always show first. **Nothing leaves the browser until the visitor submits the form.**
+Results always show before the email form (only the name step comes first). **Nothing leaves the browser until the visitor submits the form.**
 
 ### Connect it
 
